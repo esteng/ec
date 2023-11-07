@@ -1,5 +1,5 @@
 # coding: utf8
-
+import pdb 
 import json
 import os
 import random
@@ -151,6 +151,107 @@ def parseLogo(s):
 
     try: return Abstraction(command(s, [], Index(0)))
     except: return Abstraction(block(s, [], Index(0)))
+
+
+def parseLogoPython(s):
+        
+    _ua = Program.parse("logo_UA")
+    _ul = Program.parse("logo_UL")
+
+    _za = Program.parse("logo_ZA")
+    _zl = Program.parse("logo_ZL")
+
+    _da = Program.parse("logo_DIVA")
+    _ma = Program.parse("logo_MULA")
+    _dl = Program.parse("logo_DIVL")
+    _ml = Program.parse("logo_MULL")
+
+    _aa = Program.parse("logo_ADDA")
+    _sa = Program.parse("logo_SUBA")
+    _al = None#Program.parse("logo_ADDL")
+    _sl = None#Program.parse("logo_SUBL")
+
+    _pu = None#Program.parse("logo_PU")
+    _pd = None#Program.parse("logo_PD")
+    _p = Program.parse("logo_PT")
+    _move = Program.parse("logo_FWRT")
+    _embed = Program.parse("logo_GETSET")
+
+    _addition = Program.parse("+")
+    _infinity = Program.parse("logo_IFTY")
+    _ea = Program.parse("logo_epsA")
+    _el = Program.parse("logo_epsL")
+    _loop = Program.parse("logo_forLoop")
+
+    from sexpdata import loads, Symbol
+    s = loads(s)
+    def command(k, environment, continuation):
+        assert isinstance(k,list)
+        if k[0] == Symbol("move"):
+            return Application(Application(Application(_move,
+                                                       expression(k[1],environment)),
+                                           expression(k[2],environment)),
+                               continuation)
+        if k[0] == Symbol("for") or k[0] == Symbol("loop"):
+            v = k[1]
+            b = expression(k[2], environment)
+            newEnvironment = [None, v] + environment
+            body = block(k[3:], newEnvironment, Index(0))
+            return Application(Application(Application(_loop,b),
+                                           Abstraction(Abstraction(body))),
+                               continuation)
+        if k[0] == Symbol("embed"):
+            body = block(k[1:], [None] + environment, Index(0))
+            return Application(Application(_embed,Abstraction(body)),continuation)
+        if k[0] == Symbol("p"):
+            body = block(k[1:], [None] + environment, Index(0))
+            return Application(Application(_p,Abstraction(body)),continuation)
+
+        assert False
+    def expression(e, environment):
+        for n, v in enumerate(environment):
+            if e == v: return Index(n)
+
+        if isinstance(e,int): return Program.parse(str(e))
+
+        mapping = {"1a": _ua,
+                   "1d": _ul, "1l": _ul,
+                   "0a": _za,
+                   "0d": _zl, "0l": _zl,
+                   "/a": _da,
+                   "/l": _dl, "/d": _dl,
+                   "*a": _ma,
+                   "*l": _ml, "*d": _ml,
+                   "+a": _aa,
+                   "+d": _al, "+l": _al,
+                   "-a": _sa,
+                   "-d": _sl, "-l": _sl,
+                   "+": _addition,
+                   "infinity": _infinity,
+                   "epsilonAngle": _ea,
+                   "epsilonDistance": _el,
+                   "epsilonLength": _el}
+        if e == float('inf'): return _infinity
+        for name, value in mapping.items():
+            if e == Symbol(name): return value
+            
+        assert isinstance(e,list), "not a list %s"%e
+        for name, value in mapping.items():
+            if e[0] == Symbol(name):
+                f = value
+                for argument in e[1:]:
+                    f = Application(f, expression(argument, environment))
+                return f
+        assert False
+        
+    def block(b, environment, continuation):
+        if len(b) == 0: return continuation
+        return command(b[0], environment, block(b[1:], environment, continuation))
+
+    try: return Abstraction(command(s, [], Index(0)))
+    except: return Abstraction(block(s, [], Index(0)))
+
+
 
 def token_length(p):
     return len(str(p).replace("lambda", " ").replace(")", " ").replace("(", " ").split())
@@ -758,6 +859,22 @@ def makeLogoUnlimitedTasks(resolution=[28,128], n_tasks=None, split=0.75):
             test_task.mustTrain = False
         for train_task in final_train_tasks:
             train_task.mustTrain = True
+
+
+        with open(f"/nas-ssd2/esteng/program_refactoring/logo_data/code/logo_unlimited_{n_tasks}/train.jsonl", "w") as f1:
+            for task in final_train_tasks:
+                task_program = task.expression
+                task_lang = task.language
+                to_write = {"program": task_program, "language": task_lang}
+                f1.write(json.dumps(to_write)+"\n")
+
+        with open(f"/nas-ssd2/esteng/program_refactoring/logo_data/code/logo_unlimited_{n_tasks}/test.jsonl", "w") as f2:
+            for task in final_test_tasks:
+                task_program = task.expression
+                task_lang = task.language
+                to_write = {"program": task_program, "language": task_lang}
+                f2.write(json.dumps(to_write)+"\n")
+
         return final_train_tasks + final_test_tasks
 
 def sampleSupervised(tasks, n):

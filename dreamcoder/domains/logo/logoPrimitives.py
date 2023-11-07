@@ -1,3 +1,12 @@
+import os
+import sys
+
+repo_root = os.path.join("/nas-ssd2/esteng/program_refactoring/ec/dreamcoder")
+sys.path.append(repo_root)
+sys.path.append(os.path.join(repo_root, 'pregex'))
+
+
+
 from dreamcoder.program import Primitive, Program
 from dreamcoder.type import arrow, baseType, tint
 
